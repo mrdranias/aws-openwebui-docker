@@ -1,0 +1,17 @@
+# never commit secrets
+.env
+.env.*
+
+# OpenWebUI data (users, settings, chats)
+data/
+openwebui-data/
+**/openwebui-data/
+
+# docker
+docker-volumes/
+*.log
+
+# common app clutter
+node_modules/
+*.sqlite
+.n8n/
