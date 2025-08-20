@@ -1,34 +1,37 @@
-version: "3.9"
+version: "3.8"
 
 networks:
-  proxy:
-    name: proxy
+  webui_net:
+    name: webui_net
     driver: bridge
 
+volumes:
+  nginx_certs:
+  nginx_vhost:
+  nginx_html:
+
 services:
-  # Reverse proxy
   nginx-proxy:
-    image: nginxproxy/nginx-proxy:latest
+    image: jwilder/nginx-proxy
     container_name: nginx-proxy
-    restart: unless-stopped
+    restart: always
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
-      - nginx_certs:/etc/nginx/certs
+      - nginx_certs:/etc/nginx/certs:ro
       - nginx_vhost:/etc/nginx/vhost.d
       - nginx_html:/usr/share/nginx/html
     networks:
-      - proxy
+      - webui_net
 
-  # Let's Encrypt companion for auto TLS
-  nginx-proxy-acme:
-    image: nginxproxy/acme-companion:latest
-    container_name: nginx-proxy-acme
-    restart: unless-stopped
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: nginx-letsencrypt
+    restart: always
     environment:
-      DEFAULT_EMAIL: "${LE_EMAIL}"
+      - NGINX_PROXY_CONTAINER=nginx-proxy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - nginx_certs:/etc/nginx/certs
@@ -37,20 +40,27 @@ services:
     depends_on:
       - nginx-proxy
     networks:
-      - proxy
+      - webui_net
 
-  # OpenWebUI (UI only, uses API keys)
   openwebui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:v0.6.22   # pin a version (recommended)
     container_name: openwebui
     restart: unless-stopped
     environment:
+      # --- Providers (UI-only) ---
       OPENAI_API_KEY: "${OPENAI_API_KEY}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
-      # OPENAI_API_BASE_URL: "${OPENAI_API_BASE_URL}"
-      # ANTHROPIC_API_BASE_URL: "${ANTHROPIC_API_BASE_URL}"
+      PERPLEXITY_API_KEY: "${PERPLEXITY_API_KEY}"
 
-      # nginx-proxy routing + TLS
+      # --- Signups & user defaults ---
+      # First run: leave ENABLE_SIGNUP unset (defaults to true) or set to "true" in .env
+      ENABLE_SIGNUP: "${ENABLE_SIGNUP}"
+      DEFAULT_USER_ROLE: "${DEFAULT_USER_ROLE}"   # e.g., "pending" (recommended), "user"
+
+      # Helps WebUI generate correct links (optional but nice)
+      WEBUI_URL: "https://${CHAT_DOMAIN}"
+
+      # --- Proxy routing + TLS ---
       VIRTUAL_HOST: "${CHAT_DOMAIN}"
       LETSENCRYPT_HOST: "${CHAT_DOMAIN}"
       LETSENCRYPT_EMAIL: "${LE_EMAIL}"
@@ -60,9 +70,10 @@ services:
     expose:
       - "8080"
     networks:
-      - proxy
+      - webui_net
 
 volumes:
   nginx_certs:
   nginx_vhost:
   nginx_html:
+
