@@ -56,7 +56,7 @@ services:
       # First run: leave ENABLE_SIGNUP unset (defaults to true) or set to "true" in .env
       ENABLE_SIGNUP: "${ENABLE_SIGNUP}"
       DEFAULT_USER_ROLE: "${DEFAULT_USER_ROLE}"   # e.g., "pending" (recommended), "user"
-      BYPASS_MODEL_ACCESS_CONTROL=True
+      BYPASS_MODEL_ACCESS_CONTROL: "TRUE"
 
       # Helps WebUI generate correct links (optional but nice)
       WEBUI_URL: "https://${CHAT_DOMAIN}"
